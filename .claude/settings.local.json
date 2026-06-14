@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose *)",
+      "Bash(find ~/.claude/skills -maxdepth 4 -name \"SKILL.md\" 2>/dev/null | head -20 && echo \"---\" && find ~/.claude/skills -maxdepth 3 -iname \"*ui*\" -o -iname \"*design*\" -o -iname \"*frontend*\" -o -iname \"*prototype*\" 2>/dev/null | head -20)",
+      "Read(//mnt/c/Users/joong/.claude/skills/**)",
+      "Read(//home/joongi/.agents/skills/prototype/**)",
+      "Read(//home/joongi/.agents/skills/impeccable/**)",
+      "Bash(node ~/.claude/skills/impeccable/scripts/live.mjs --help)",
+      "Bash(node ~/.claude/skills/impeccable/scripts/live.mjs)",
+      "Skill(impeccable)",
+      "Skill(impeccable:*)"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+any-whisper-webui
+Copyright 2026 any-whisper-webui contributors
+
+This product includes references to and integrations with the following open
+source projects. Refer to each project for its own license terms.
+
+== Architectural reference (no code copied) ==
+- jhj0517/Whisper-WebUI            Apache-2.0
+  https://github.com/jhj0517/Whisper-WebUI
+
+== Runtime dependencies ==
+- openai/whisper                   MIT
+- SYSTRAN/faster-whisper           MIT
+- Vaibhavs10/insanely-fast-whisper Apache-2.0
+- snakers4/silero-vad              MIT
+- Anjok07/ultimatevocalremovergui  MIT  (model files governed by their own
+                                          licenses)
+- pyannote/pyannote-audio          MIT  (model weights "pyannote/speaker-
+                                          diarization-3.1" and "pyannote/
+                                          segmentation-3.0" require accepting
+                                          their HuggingFace terms and providing
+                                          a HuggingFace token)
+- yt-dlp                           Unlicense  (download rights for any media
+                                                 are the user's responsibility)
+- FFmpeg                           LGPL-2.1+  (dynamically linked)
+- HuggingFace transformers         Apache-2.0
+- nats.io / nats-py                Apache-2.0
+- FastAPI / Starlette              MIT
+- SQLAlchemy                       MIT
+- React / Vite / MUI / Tailwind 4 /
+  Zustand / Axios / TanStack Query MIT (each)
+- structlog                        MIT/Apache-2.0 dual
+
+== Models with constrained terms ==
+- facebook/nllb-200-distilled-600M, NLLB-200-3.3B, etc.
+    CC-BY-NC 4.0 (NON-COMMERCIAL ONLY).
+    The UI displays a warning when NLLB is selected.
+- DeepL API
+    Use is governed by DeepL's own Terms of Service. The user must obtain and
+    enter their own API key.

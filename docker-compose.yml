@@ -1,0 +1,70 @@
+name: any-whisper-webui
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    pull_policy: missing
+    command: ["-js", "-sd", "/data"]
+    volumes:
+      - ./data/nats:/data
+    expose:
+      - "4222"
+
+  api:
+    build: ./api
+    image: any-whisper-webui-api:dev
+    pull_policy: never
+    env_file: .env
+    environment:
+      - API_NATS_URL=nats://nats:4222
+      - API_DATA_DIR=/data
+      - API_DB_URL=sqlite+aiosqlite:////data/whisper.db
+    volumes:
+      - ./data:/data
+      - ./api:/app
+    expose:
+      - "8080"
+    depends_on:
+      - nats
+
+  ai:
+    build: ./ai
+    image: any-whisper-webui-ai:dev
+    pull_policy: never
+    env_file: .env
+    environment:
+      - AI_NATS_URL=nats://nats:4222
+      - AI_DATA_DIR=/data
+    volumes:
+      - ./data:/data
+      - ./ai:/app
+    depends_on:
+      - nats
+    # GPU: uncomment when NVIDIA Container Toolkit is installed.
+    deploy:
+      resources:
+        reservations:
+          devices: [{ capabilities: [gpu] }]
+
+  ui:
+    build:
+      context: ./ui
+      target: dev
+    image: any-whisper-webui-ui:dev
+    pull_policy: never
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    expose:
+      - "5173"
+
+  proxy:
+    image: caddy:2-alpine
+    pull_policy: missing
+    ports:
+      - "8080:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+      - ui

@@ -1,0 +1,33 @@
+# env / secrets
+.env
+.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.uv/
+*.egg-info/
+build/
+dist/
+
+# node
+node_modules/
+.vite/
+whisper_web/dist/
+
+# data / generated
+data/
+caddy_data/
+caddy_config/
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+# Added by code-review-graph
+.code-review-graph/
+
+# impeccable live helper session journal (regenerated; never check in)
+.impeccable/

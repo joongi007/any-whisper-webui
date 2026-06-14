@@ -1,0 +1,41 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "any-whisper-webui — HTTP/WS API service"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "structlog>=24.4",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+    "ulid-py>=1.1",
+    "python-multipart>=0.0.12",
+    "nats-py>=2.9",
+    "yt-dlp>=2024.11.4",
+    "anyio>=4.6",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.7", "pytest>=8.3", "pytest-asyncio>=0.24"]
+
+[project.scripts]
+api = "api.__main__:main"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["api"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501"]

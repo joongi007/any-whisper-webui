@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+/* Tokens mirror DESIGN.md. Hue 295 (cool violet) — distinct from the AI-cliché
+ * 270–280 lane. Neutrals tinted toward this hue so the surface never feels
+ * "pure grey". OKLCH only; never use #000 / #fff. */
+
+:root {
+  --bg-canvas:      oklch(98.5% 0.005 80);   /* warm off-white, slight peach */
+  --bg-surface:     oklch(100%  0     0);
+  --bg-subtle:      oklch(96%   0.006 80);
+  --bg-sunken:      oklch(94%   0.008 80);
+  /* "selected row, hovered" — must read as one shade DEEPER than --bg-subtle
+   *  in both themes, so hover-over-selected still feels like a lift. */
+  --bg-selected-hover: oklch(92% 0.010 80);
+  --border-default: oklch(91%   0.008 80);
+  --border-strong:  oklch(85%   0.012 80);
+
+  --text-primary:   oklch(20%   0.01  295);
+  --text-secondary: oklch(45%   0.01  295);
+  --text-muted:     oklch(60%   0.008 295);
+
+  --accent:         oklch(50%   0.18  295);
+  --accent-fg:      oklch(99%   0.005 295);
+  --accent-soft:    oklch(95%   0.03  295);
+  --accent-strong:  oklch(40%   0.20  295);
+
+  --success:        oklch(60%   0.15  150);
+  --success-soft:   oklch(95%   0.03  150);
+  --warning:        oklch(70%   0.16  75);
+  --warning-soft:   oklch(95%   0.03  75);
+  --danger:         oklch(58%   0.20  25);
+  --danger-soft:    oklch(95%   0.03  25);
+
+  --shadow-1: 0 1px 0 rgb(0 0 0 / 4%);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 6%), 0 1px 0 rgb(0 0 0 / 4%);
+  --shadow-3: 0 12px 32px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 6%);
+
+  /* MUI / Tailwind reach for these too. */
+  --border-default-mui: var(--border-default);
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg-canvas:      oklch(12% 0.01  295);
+  --bg-surface:     oklch(16% 0.012 295);
+  --bg-subtle:      oklch(20% 0.014 295);
+  --bg-sunken:      oklch(10% 0.008 295);
+  /* Dark theme: bump LIGHTER than --bg-subtle so hover-over-selected still
+   *  reads as "raised", not "sunken below the page". */
+  --bg-selected-hover: oklch(24% 0.016 295);
+  --border-default: oklch(25% 0.014 295);
+  --border-strong:  oklch(35% 0.016 295);
+
+  --text-primary:   oklch(94% 0.005 295);
+  --text-secondary: oklch(75% 0.01  295);
+  --text-muted:     oklch(60% 0.012 295);
+
+  --accent:         oklch(72% 0.16  295);
+  --accent-fg:      oklch(15% 0.01  295);
+  --accent-soft:    oklch(28% 0.04  295);
+  --accent-strong:  oklch(80% 0.18  295);
+
+  --success:        oklch(72% 0.16  150);
+  --success-soft:   oklch(25% 0.04  150);
+  --warning:        oklch(80% 0.16  75);
+  --warning-soft:   oklch(28% 0.04  75);
+  --danger:         oklch(70% 0.20  25);
+  --danger-soft:    oklch(25% 0.05  25);
+
+  --shadow-1: 0 1px 0 rgb(0 0 0 / 40%);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 35%), 0 1px 0 rgb(0 0 0 / 40%);
+  --shadow-3: 0 14px 36px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
+
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: Inter, "SF Pro Text", system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Quieter scrollbars — barely-there until hovered. */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--bg-canvas);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* One consistent focus ring across MUI / native / Tailwind. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes ww-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1.0; transform: scale(1.15); }
+}
+.ww-pulse {
+  animation: ww-pulse 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}

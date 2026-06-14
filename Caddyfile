@@ -1,0 +1,20 @@
+# Single entry-point reverse proxy for any-whisper-webui.
+# Plain HTTP — localhost is a secure context for getUserMedia/getDisplayMedia,
+# so TLS would only add cert warnings without any actual benefit in local dev.
+
+{
+    auto_https off
+}
+
+:80 {
+    @api path /api/* /ws/*
+    handle @api {
+        reverse_proxy api:8080
+    }
+
+    handle {
+        reverse_proxy ui:5173
+    }
+
+    encode gzip zstd
+}
