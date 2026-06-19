@@ -68,8 +68,8 @@ export function JobCard({ job }: { job: JobView }) {
         p: 1.5, borderRadius: 2,
         bgcolor: "background.paper",
         border: "1px solid var(--border-default)",
-        transition: "border-color 140ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "&:hover": { borderColor: "var(--border-strong)" },
+        transition: "border-color 140ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "&:hover": { borderColor: "var(--border-strong)", boxShadow: "var(--shadow-1)" },
       }}
     >
       <Stack spacing={1.25}>

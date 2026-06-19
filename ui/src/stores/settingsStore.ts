@@ -8,6 +8,12 @@ export interface SettingsState {
   language: string;
   computeType: string;
 
+  // Execution strategy for file/YouTube jobs (not realtime). "batched" uses
+  // faster-whisper's BatchedInferencePipeline — higher throughput when VRAM
+  // allows. Decide via the performance benchmark in Settings.
+  processingMode: "sequential" | "batched";
+  batchSize: number;
+
   // Pre/post pipeline toggles
   vadEnabled: boolean;
   vadThreshold: number;           // 0..1 (silero), default 0.5
@@ -51,6 +57,8 @@ export const useSettingsStore = create<SettingsState>()(
       model: "large-v3-turbo",
       language: "auto",
       computeType: "float16",
+      processingMode: "sequential",
+      batchSize: 8,
 
       vadEnabled: true,
       vadThreshold: 0.5,
@@ -76,7 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "whisper-settings",
-      version: 5,
+      version: 6,
       migrate: (persisted, fromVersion) => {
         const old = (persisted ?? {}) as Partial<SettingsState>;
         let next = old;
@@ -105,6 +113,11 @@ export const useSettingsStore = create<SettingsState>()(
           // v5 added realtime audio recording. Default on.
           next = { ...next, realtimeRecord: true };
         }
+        if (fromVersion < 6) {
+          // v6 added the sequential/batched execution mode. Default sequential
+          // (safe everywhere); users opt into batched via the benchmark.
+          next = { ...next, processingMode: "sequential", batchSize: 8 };
+        }
         return next as SettingsState;
       },
     },
@@ -125,5 +138,7 @@ export function buildTranscribeOptions(s: SettingsState): Record<string, unknown
     // would force every backend to interpret it; explicit zero is cleaner.
     hallucination_silence_threshold:
       s.hallucinationSilenceThreshold > 0 ? s.hallucinationSilenceThreshold : null,
+    // 0 → sequential on the backend; >1 → batched with this size.
+    batch_size: s.processingMode === "batched" ? s.batchSize : 0,
   };
 }

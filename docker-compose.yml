@@ -40,7 +40,9 @@ services:
       - ./ai:/app
     depends_on:
       - nats
-    # GPU: uncomment when NVIDIA Container Toolkit is installed.
+    # GPU reservation, on by default (needs the NVIDIA Container Toolkit).
+    # No GPU? Don't edit this — start with the CPU overlay, which removes it:
+    #   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
     deploy:
       resources:
         reservations:

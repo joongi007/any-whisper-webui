@@ -97,6 +97,37 @@ async def get_models(backend: str = "faster_whisper") -> dict:
     return {"data": {"backend": backend, "models": models}}
 
 
+class _BenchmarkReq(BaseModel):
+    model: str | None = None
+    compute_type: str | None = None
+    clip_sec: float | None = None
+    job_id: str | None = None
+
+
+@v1_system_router.post("/benchmark")
+async def run_benchmark(body: _BenchmarkReq) -> dict:
+    """Measure execution strategies (sequential / concurrent / batched) on this
+    hardware and return results + a recommendation. Delegated to the ai worker,
+    which holds the GPU for the run, so allow a generous timeout."""
+    resp = await nats_client.request(
+        "ai.bench.run", body.model_dump(exclude_none=True), timeout=300.0,
+    )
+    if resp is None:
+        raise BackendUnavailable("ai worker offline or benchmark timed out")
+    # already_running is a normal, expected outcome (not a backend failure) — pass
+    # it through so the UI can say "a benchmark is already in progress".
+    if "error" in resp and resp["error"] != "already_running":
+        raise BackendUnavailable(resp["error"])
+    return {"data": resp}
+
+
+@v1_system_router.post("/benchmark/cancel")
+async def cancel_benchmark() -> dict:
+    """Cooperatively stop an in-flight benchmark (broadcast to workers)."""
+    await nats_client.request("ai.bench.cancel", {}, timeout=5.0)
+    return {"data": {"ok": True}}
+
+
 @v1_system_router.get("/gpu/stats")
 async def get_gpu_stats() -> dict:
     """Live GPU utilisation snapshot. Cheap enough for a 2-3s UI poll.

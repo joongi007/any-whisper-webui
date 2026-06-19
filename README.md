@@ -1,147 +1,170 @@
 # any-whisper-webui
 
-Whisper 기반 **로컬 STT · 번역 · 자막 편집** WebUI. 전부 내 컴퓨터에서 돈다. 클라우드 안 거친다.
+![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 
-## 왜 만들었나
+OpenAI Whisper 기반의 로컬 음성 인식(STT) · 번역 · 자막 편집 웹 UI입니다.
+모든 처리가 내 컴퓨터에서 이루어지며, 클라우드를 거치지 않습니다.
 
-심심해서. 그리고 내 회의 녹음이랑 유튜브 강의 자막을 로컬에서 따고 싶었는데,
-기존 도구들은 받아쓰기까지는 잘 되지만 그 다음(자막을 손보고, 화자 나누고, 특정 구간만 다시
-돌리는 일)이 늘 아쉬웠다. 그래서 "받아쓰기 + 편집기"를 한 화면에 욱여넣은 주말 프로젝트.
+## 소개
 
-그리고 **이 프로젝트는 거의 전부 AI(Claude Code)로 작성했다.** 코드, 아키텍처, 문서,
-디자인까지 사람이 방향을 잡고 AI가 짜는 식으로 페어 프로그래밍한 결과물이다. 그래서 "AI가
-이 정도 규모의 멀티프로세스 앱을 어디까지 만드나" 실험의 성격도 있다.
+회의 녹음과 강의 영상의 자막을 로컬에서 직접 만들고 다듬기 위해 시작한 개인 프로젝트입니다.
+기존 도구들은 받아쓰기까지는 충분히 잘 동작하지만, 그 이후의 작업(자막을 손보고, 화자를 나누고,
+특정 구간만 다시 변환하는 일)이 늘 아쉬웠습니다. 그래서 받아쓰기와 편집기를 한 화면에 통합하는
+것을 목표로 만들었습니다.
 
-## 기존 Whisper UI들과 뭐가 다른가
+## 주요 기능
 
-대부분의 오픈소스 Whisper UI(예: Gradio 기반 webui들)는 "오디오 넣으면 자막 떨어지는" 단방향
-도구다. 이 프로젝트는 거기서 두 방향으로 더 갔다.
+- **다양한 입력** : 오디오/영상 파일, YouTube URL, 마이크, 브라우저 탭·창 오디오 캡처
+- **자막 내보내기** : SRT / WebVTT / TXT (편집한 내용이 그대로 반영됩니다)
+- **Whisper 백엔드 선택** : `faster_whisper`(기본) / `openai_whisper` / `insanely_fast_whisper`
+- **번역** : 음성 → 영어 번역(Whisper `task=translate`), 텍스트 번역(NLLB 오프라인·비상업 / DeepL)
+- **전처리** : Silero VAD, UVR(Demucs) 기반 배경음 분리
+- **화자 분리** : pyannote 기반 후처리
+- **실시간 변환** : WebSocket 스트리밍 STT, 옵션 번역, 화자 라벨
 
-**1. 받아쓰기가 끝이 아니라 시작 (본격 자막 편집기)**
-- 자막 줄 인라인 편집, 더블클릭 편집 / 클릭 재생
-- **구간 재변환** — 틀린 부분만 드래그로 골라 다른 설정으로 다시 돌리기
-- 파형에서 드래그로 타임코드 조정, 세그먼트 삽입 · 복제 · 이동 · 병합 · 삭제
-- 화자 라벨 편집 — 한 줄만 바꾸기 / 라벨 전체 일괄 변경 / 화자 지정 / 제거
-- 모든 편집에 실행취소(undo)
+## 기존 Whisper UI와의 차이점
 
-**2. 입력과 구조**
-- **실시간 스트리밍 STT** — 마이크뿐 아니라 브라우저 탭/창 오디오 캡처(`getDisplayMedia`)
-- **멀티프로세스 아키텍처** — GPU 추론을 API 서버에서 분리하고 NATS 큐로 연결, ai 워커 수평 확장.
-  단일 Gradio 프로세스가 아니다. ([ARCHITECTURE.md](./ARCHITECTURE.md))
-- **커스텀 React UI** — Gradio가 아니라 직접 만든 SPA. Simple/Advanced 모드, ko/en, 라이트/다크,
-  키보드 단축키, 스크린리더 a11y
-- 화자 분리(pyannote) 통합, Whisper 백엔드 3종 선택
+대부분의 오픈소스 Whisper UI(예: Gradio 기반 도구)는 "오디오를 넣으면 자막이 나오는" 단방향
+도구입니다. 이 프로젝트는 두 가지 방향으로 한 걸음 더 나아갔습니다.
 
-장단점은 분명하다. 설치는 Gradio 한 방보다 무겁다(Docker Compose 5개 서비스). 대신 구조가
-분리돼 있어 확장·교체가 쉽고, 편집 경험이 훨씬 깊다.
+**1. 받아쓰기 이후의 본격 자막 편집기**
 
-## 기능
+- 자막 줄 인라인 편집 (클릭하면 재생, 더블클릭하면 편집)
+- **구간 재변환** : 잘못 인식된 부분만 선택해 다른 설정으로 다시 변환
+- 파형에서 드래그로 타임코드 조정, 세그먼트 삽입·복제·이동·병합·삭제
+- 화자 라벨 편집 (한 줄만 변경 / 라벨 전체 일괄 변경 / 화자 지정 / 제거)
+- 모든 편집에 실행 취소(undo) 제공
 
-- **입력** — 파일, YouTube URL, 마이크, 브라우저 탭/창 오디오
-- **출력** — SRT / WebVTT / TXT (편집한 내용 그대로 반영)
-- **Whisper 백엔드** — `faster_whisper`(기본) / `openai_whisper` / `insanely_fast_whisper`
-- **번역** — 음성→영어(Whisper `task=translate`), 텍스트 번역(NLLB 오프라인·비상업 / DeepL)
-- **전처리** — Silero VAD, UVR(Demucs)로 BGM 분리
-- **후처리** — pyannote 화자 분리
-- **실시간** — WebSocket 스트리밍 STT + 옵션 번역, 화자 라벨
+**2. 입력 방식과 구조**
 
----
+- **실시간 스트리밍 STT** : 마이크뿐 아니라 브라우저 탭·창 오디오 캡처(`getDisplayMedia`) 지원
+- **멀티프로세스 아키텍처** : GPU 추론을 API 서버에서 분리하고 NATS 큐로 연결하여 ai 워커를
+  수평 확장할 수 있습니다. 단일 Gradio 프로세스가 아닙니다. (자세한 내용은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md))
+- **직접 구현한 React UI** : Simple/Advanced 모드, 한국어·영어, 라이트·다크 테마, 키보드 단축키,
+  스크린리더 접근성 지원
+- pyannote 화자 분리 통합, Whisper 백엔드 3종 선택
 
-## 설치
+설치는 Gradio 기반 도구보다 무겁습니다(Docker Compose로 5개 서비스 구동). 대신 구조가 분리되어
+있어 확장·교체가 쉽고, 편집 경험이 훨씬 깊습니다.
 
-공통 준비물: **Docker** + **Docker Compose v2**. 호스트에 뚫리는 포트는 `8080` 하나다.
+## 설치 및 실행
+
+### 전제 조건
+
+- Docker 및 Docker Compose v2 (CPU 오버레이는 `!reset`을 쓰므로 v2.24+ 필요)
+- 권장: NVIDIA GPU. ai 워커는 기본적으로 CUDA(float16)로 추론하며, GPU가 없으면 CPU로도
+  동작하지만 느립니다.
+
+### 공통 절차
 
 ```bash
 git clone <this-repo> && cd any-whisper-webui
-cp .env.example .env        # 화자분리 쓸 거면 HuggingFace 토큰 등 채우기
-docker compose up -d
-# 브라우저에서 http://localhost:8080
+cp .env.example .env        # 화자 분리를 사용하려면 HuggingFace 토큰 등을 입력합니다
 ```
 
-> 첫 실행 시 ai 워커가 수 GB 모델을 내려받는다(시간 소요). 캐시는 `./data/models`에 남는다.
+그다음 환경에 맞게 실행합니다. 실행 명령은 운영체제(GPU 유무)에 따라 다르므로 아래 항목을
+참고하세요. 실행 후 브라우저에서 `http://localhost:8080`에 접속합니다.
 
-ai 워커는 기본적으로 **NVIDIA GPU(CUDA, float16)** 로 추론한다. GPU가 없으면 CPU로도 돌지만
-느리다. OS별로 GPU 세팅이 갈리니 아래를 따른다.
+- NVIDIA GPU (Linux / Windows-WSL2): `docker compose up -d`
+- GPU 없음 (macOS / GPU 미탑재 PC): `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d`
 
-### 🐧 Linux (GPU 네이티브 · 권장)
+호스트에 노출되는 포트는 `8080` 하나입니다. 첫 실행 시 ai 워커가 수 GB 규모의 모델을
+내려받으므로 시간이 다소 걸립니다(모델 캐시는 `./data/models`에 저장됩니다).
 
-1. NVIDIA 드라이버 설치 (`nvidia-smi`로 확인).
-2. [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 설치 후 Docker에 등록:
+### Linux (GPU 네이티브, 권장)
+
+1. NVIDIA 드라이버를 설치합니다 (`nvidia-smi`로 확인).
+2. [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)을 설치하고 Docker에 등록합니다.
    ```bash
    sudo nvidia-ctk runtime configure --runtime=docker
    sudo systemctl restart docker
    ```
-3. GPU가 컨테이너에서 보이는지 확인:
+3. 컨테이너에서 GPU가 인식되는지 확인합니다.
    ```bash
    docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
    ```
-4. `docker compose up -d`. 끝.
+4. `docker compose up -d` 를 실행합니다.
 
-### 🪟 Windows (WSL2 + GPU)
+### Windows (GPU)
 
-1. **Docker Desktop** 설치 → 설정에서 **WSL2 기반 엔진** 활성화.
-2. **Windows에** 최신 NVIDIA 드라이버 설치 (WSL용 CUDA 지원이 드라이버에 내장돼 있다).
-   WSL 안에 별도 CUDA 드라이버를 설치하지 말 것 — 충돌난다.
-3. GPU는 Docker Desktop이 WSL2를 통해 자동으로 컨테이너에 노출한다. 위 Linux의 `nvidia-smi`
-   확인 명령으로 검증.
-4. 프로젝트는 **WSL2 파일시스템 안**(예: `~/projects/...`)에 두는 걸 권장. Windows 드라이브
-   (`/mnt/c/...`)에 두면 볼륨 마운트가 느리다.
-5. `docker compose up -d`.
-6. 탭/창 오디오 캡처는 **Chrome / Edge**에서 동작. Firefox/Safari는 마이크만.
+GPU를 쓰는 방법은 두 가지입니다. 대부분은 방법 A로 충분합니다.
 
-### 🍎 macOS (CPU 전용)
+**방법 A. Docker Desktop (일반 사용자 권장)**
 
-Mac에는 NVIDIA GPU가 없고, Apple Silicon의 MPS도 Docker 컨테이너 안에서는 접근할 수 없다.
-따라서 **CPU 모드로만** 동작하며 느리다. 작은 모델로 가볍게 쓰는 용도.
+WSL2를 직접 다룰 필요가 없습니다. 설치 마법사가 알아서 구성합니다.
 
-1. **Docker Desktop for Mac** 설치.
-2. GPU 예약 블록을 끈다. `docker-compose.yml`의 `ai` 서비스에서 아래를 주석 처리(또는 삭제):
-   ```yaml
-   #    deploy:
-   #      resources:
-   #        reservations:
-   #          devices: [{ capabilities: [gpu] }]
-   ```
-3. `.env`에서 CPU에 맞게 조정:
+1. Docker Desktop을 설치합니다(설치 과정에서 WSL2 기반이 자동으로 설정됩니다).
+2. Windows에 최신 NVIDIA 드라이버를 설치합니다(WSL용 CUDA 지원이 드라이버에 포함되어 있습니다).
+3. `docker compose up -d` 를 실행합니다. GPU 인식 여부는 위 Linux의 `nvidia-smi` 명령으로 확인할 수 있습니다.
+
+**방법 B. WSL2에서 직접 (개발자)**
+
+WSL2 배포판 안에서 작업하면 빌드와 볼륨 마운트가 빠릅니다.
+
+1. WSL2와 리눅스 배포판(예: Ubuntu)을 설치하고, 그 안에서 저장소를 clone합니다.
+2. Windows에 최신 NVIDIA 드라이버를 설치합니다(WSL 내부에 별도 CUDA 드라이버는 설치하지 않습니다, 충돌함).
+3. 프로젝트는 WSL2 파일시스템(예: `~/projects/...`)에 둡니다. Windows 드라이브(`/mnt/c/...`)는 마운트가 느립니다.
+4. `docker compose up -d` 를 실행합니다.
+
+> 탭·창 오디오 캡처는 Chrome / Edge에서 동작합니다(Firefox/Safari는 마이크만 지원).
+
+### macOS (CPU 전용)
+
+Mac에는 NVIDIA GPU가 없으며, Apple Silicon의 MPS도 Docker 컨테이너 내부에서는 접근할 수
+없습니다. 따라서 CPU 모드로만 동작하며 속도가 느립니다(가벼운 용도, 작은 모델 권장).
+
+1. Docker Desktop for Mac을 설치합니다.
+2. `.env`를 CPU 환경에 맞게 조정합니다.
    ```ini
+   API_DEFAULT_MODEL=small        # base / small 권장 (large는 매우 느림)
    API_DEFAULT_COMPUTE_TYPE=int8
-   API_DEFAULT_MODEL=small        # base / small 권장 (large는 비현실적으로 느림)
+   AI_PREWARM_MODEL=base
    ```
-4. `docker compose up -d`.
+3. CPU 오버레이로 실행합니다. base 파일의 GPU 예약을 자동으로 비워 주므로
+   `docker-compose.yml`을 직접 수정할 필요가 없습니다.
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+   ```
 
-> **GPU 없는 Linux/Windows**도 macOS와 동일하게 GPU 블록을 끄고 `int8` + 작은 모델로 설정하면 된다.
+> GPU가 없는 Linux/Windows 환경도 동일하게 CPU 오버레이
+> (`-f docker-compose.yml -f docker-compose.cpu.yml`)와 `int8` + 작은 모델 설정을 쓰면 됩니다.
 
-### ai 워커 늘리기
+### ai 워커 확장
 
 ```bash
 docker compose up -d --scale ai=3
 ```
 
-> ⚠️ 단일 GPU에서 ai를 늘리면 VRAM이 분할돼 OOM 위험. 멀티 GPU나 충분한 VRAM에서만 의미 있다.
-
----
+> 단일 GPU에서 ai 워커를 늘리면 VRAM이 분할되어 OOM(메모리 부족)이 발생할 수 있습니다.
+> 다중 GPU 또는 충분한 VRAM 환경에서만 의미가 있습니다.
 
 ## 아키텍처
 
-3개 프로세스(api · ai · ui)가 NATS로 통신하는 구조다. 다이어그램·서비스 책임·데이터 흐름은
-[ARCHITECTURE.md](./ARCHITECTURE.md)에, 설계 결정 배경은 [.refs/](./.refs/)에 정리돼 있다.
+api · ai · ui 세 개의 프로세스가 NATS를 통해 통신하는 구조입니다. 다이어그램과 서비스별 책임,
+데이터 흐름은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)에, 통신 계약은
+[docs/COMMUNICATION.md](docs/COMMUNICATION.md), 설계 결정 기록은
+[docs/ARCHITECTURE-design.md](docs/ARCHITECTURE-design.md)에 정리되어 있습니다. 조사 원본과 디자인
+이터레이션은 [.refs/](.refs/)에 있습니다.
 
-## 라이선스 / 사용 책임
+## 라이선스 및 외부 리소스
 
-본 프로젝트는 **Apache-2.0**. 단, 일부 의존 모델은 별도 약관을 따른다.
+본 프로젝트는 Apache-2.0 라이선스로 배포됩니다. 다만 일부 의존 모델은 별도의 약관을 따르므로
+사용 시 주의가 필요합니다.
 
 | 대상 | 약관 |
 |---|---|
-| Whisper 가중치 | MIT — 자유 |
-| pyannote 모델 | gated. HuggingFace 약관 동의 + 토큰 필요 |
-| **NLLB** | **CC-BY-NC** — 상업 사용 금지. UI에 경고 표시 |
-| DeepL | 사용자 본인의 API 약관 책임 |
-| YouTube 콘텐츠 | yt-dlp는 Unlicense이나, 다운로드 권리는 본인 책임 |
+| Whisper 가중치 | MIT (자유 사용) |
+| pyannote 모델 | gated. HuggingFace 약관 동의 및 토큰 필요 |
+| NLLB | CC-BY-NC (상업적 사용 불가, UI에 경고 표시) |
+| DeepL | 사용자 본인의 API 약관에 따름 |
+| YouTube 콘텐츠 | yt-dlp는 Unlicense이나, 다운로드 권리는 사용자 책임 |
 
-전체 의존성 라이선스는 [NOTICE](./NOTICE) 참고.
+전체 의존성 라이선스는 [NOTICE](./NOTICE)를 참고하시기 바랍니다.
 
-## 비고
+## 참고 사항
 
-- HuggingFace 토큰은 보안상 **UI 폼이 아니라 `.env`로만** 받는다(장기 비밀이라 폼 입력 금지).
-- 임의의 다른 데스크톱 앱을 PID로 직접 캡처하는 기능은 범위 외.
-- 현재 v1은 transcribe 잡만 NATS 큐로 처리. translate/uvr/diarize 잡 큐 분리는 추후.
+- HuggingFace 토큰은 보안상 UI 입력 폼이 아니라 `.env`로만 받습니다(장기간 유지되는 비밀 값이므로
+  폼 입력을 막았습니다).
+- 임의의 다른 데스크톱 애플리케이션을 PID로 직접 캡처하는 기능은 지원 범위 밖입니다.
+- 현재 v1은 transcribe 작업만 NATS 큐로 처리하며, translate/uvr/diarize 작업의 큐 분리는 추후
+  과제입니다.

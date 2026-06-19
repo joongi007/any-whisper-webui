@@ -40,6 +40,29 @@ def _overlaps_any(start: float, end: float, ranges) -> bool:
     return any(max(start, r.start) < min(end, r.end) for r in ranges)
 
 
+def _looks_degraded(rows: list[dict], duration: float, speech_ranges) -> bool:
+    """Heuristic: did batched inference produce obviously broken output?
+
+    BatchedInferencePipeline is fast and usually fine, but on some audio it
+    fails hard (repetition loops, near-empty output, dropped segments). We catch
+    those cases so the pipeline can fall back to sequential. Tuned conservatively
+    — only flags clear breakage, not the normal minor wording differences."""
+    if not rows:
+        # Speech was detected but batch produced nothing → broken.
+        return bool(speech_ranges)
+    texts = [(r.get("text") or "").strip() for r in rows]
+    # 1) Repetition loop: many consecutive identical segments.
+    if len(texts) >= 5:
+        dups = sum(1 for i in range(1, len(texts)) if texts[i] and texts[i] == texts[i - 1])
+        if dups / len(texts) > 0.3:
+            return True
+    # 2) Near-empty despite audio: extremely low character rate over speech.
+    total_chars = sum(len(t) for t in texts)
+    if duration > 1.0 and speech_ranges and total_chars / duration < 0.3:
+        return True
+    return False
+
+
 async def _vad_ranges(wav_path: Path, threshold: float):
     import soundfile as sf
 
@@ -134,6 +157,7 @@ async def run_transcribe(msg: dict[str, Any]) -> None:
             compute_type=opts_in.get("compute_type", "float16"),
             beam_size=int(opts_in.get("beam_size", 5)),
             temperature=float(opts_in.get("temperature", 0.0)),
+            batch_size=int(opts_in.get("batch_size", 0)),
             initial_prompt=opts_in.get("initial_prompt") or None,
             # Hallucination guards — UI's Advanced mode forwards these.
             no_speech_threshold=float(opts_in.get("no_speech_threshold", 0.6)),
@@ -143,22 +167,55 @@ async def run_transcribe(msg: dict[str, Any]) -> None:
             repetition_penalty=float(opts_in.get("repetition_penalty", 1.0)),
             hallucination_silence_threshold=opts_in.get("hallucination_silence_threshold"),
         )
-        seg_iter, result_meta = backend.transcribe_iter(asr_input, opts)
+        # Collect one pass without publishing (used for the batch QA gate).
+        async def _collect(o) -> tuple[list[dict], Any]:
+            it, meta = backend.transcribe_iter(asr_input, o)
+            out: list[dict] = []
+            async for seg in it:
+                if speech_ranges is not None and not _overlaps_any(seg.start, seg.end, speech_ranges):
+                    continue
+                out.append({
+                    "start": seg.start, "end": seg.end, "text": seg.text,
+                    "words": seg.words, "speaker": None, "translation": None,
+                })
+            return out, meta
 
         collected: list[dict] = []
-        async for seg in seg_iter:
-            if speech_ranges is not None and not _overlaps_any(seg.start, seg.end, speech_ranges):
-                continue
-            row = {
-                "start": seg.start, "end": seg.end, "text": seg.text,
-                "words": seg.words, "speaker": None, "translation": None,
-            }
-            collected.append(row)
-            await _publish(job_id, "segment.partial", {
-                "start": seg.start, "end": seg.end, "text": seg.text, "speaker": None,
-            })
-            if duration > 0:
-                await _progress(job_id, STAGE_TRANSCRIBE, min(0.74, 0.20 + 0.55 * (seg.end / duration)))
+        result_meta = None
+        used_batch = bool(opts.batch_size and opts.batch_size > 1)
+
+        if used_batch:
+            # Batch: run quietly, QA the result, fall back to sequential if broken.
+            collected, result_meta = await _collect(opts)
+            if _looks_degraded(collected, duration, speech_ranges):
+                log.warning("batch_output_degraded_fallback_sequential", job_id=job_id)
+                opts.batch_size = 0
+                used_batch = False
+                collected, result_meta = [], None
+
+        if used_batch:
+            # Batch passed QA → emit its rows at once (inference already done).
+            for row in collected:
+                await _publish(job_id, "segment.partial", {
+                    "start": row["start"], "end": row["end"], "text": row["text"], "speaker": None,
+                })
+            await _progress(job_id, STAGE_TRANSCRIBE, 0.74)
+        else:
+            # Sequential streaming (also the fallback path) — live partials.
+            seg_iter, result_meta = backend.transcribe_iter(asr_input, opts)
+            async for seg in seg_iter:
+                if speech_ranges is not None and not _overlaps_any(seg.start, seg.end, speech_ranges):
+                    continue
+                row = {
+                    "start": seg.start, "end": seg.end, "text": seg.text,
+                    "words": seg.words, "speaker": None, "translation": None,
+                }
+                collected.append(row)
+                await _publish(job_id, "segment.partial", {
+                    "start": seg.start, "end": seg.end, "text": seg.text, "speaker": None,
+                })
+                if duration > 0:
+                    await _progress(job_id, STAGE_TRANSCRIBE, min(0.74, 0.20 + 0.55 * (seg.end / duration)))
 
         diar_cfg = post.get("diarize") or {}
         if diar_cfg.get("enabled"):

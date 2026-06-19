@@ -48,7 +48,7 @@ export function ConnectionBanner() {
       </Typography>
       {!offline && (
         <Button size="small" onClick={() => void sys.refetch()}
-            sx={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, minWidth: 0 }}>
+            sx={{ fontSize: 12, color: "var(--accent)", fontWeight: 700, minWidth: 0 }}>
           {t("common.retry")}
         </Button>
       )}

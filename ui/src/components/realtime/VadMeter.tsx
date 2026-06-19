@@ -49,9 +49,11 @@ export function VadMeter({
         bgcolor: "var(--bg-subtle)", overflow: "hidden",
       }}>
         <Box sx={{
-          position: "absolute", top: 0, left: 0, bottom: 0, width: `${pct}%`,
+          // Animate transform, not width (DESIGN: no layout-property animation).
+          position: "absolute", top: 0, left: 0, bottom: 0, width: "100%",
+          transformOrigin: "left center", transform: `scaleX(${pct / 100})`,
           bgcolor: speech ? "var(--success)" : "var(--text-secondary)",
-          transition: "width 100ms linear, background-color 140ms",
+          transition: "transform 100ms linear, background-color 140ms",
         }} />
         <Box sx={{
           position: "absolute", top: -2, bottom: -2, left: `${thrPct}%`,

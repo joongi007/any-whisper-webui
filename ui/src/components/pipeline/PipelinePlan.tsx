@@ -80,7 +80,10 @@ function Row({
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between">
       <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ color: disabled ? "text.disabled" : "text.primary" }}>
+        <Typography variant="body2" noWrap sx={{
+          color: disabled ? "text.disabled" : "text.primary",
+          overflow: "hidden", textOverflow: "ellipsis",
+        }}>
           {label}
         </Typography>
         {hint && (

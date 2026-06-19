@@ -59,7 +59,7 @@ function EditorCoachmark() {
         </Typography>
       </Box>
       <Button size="small" onClick={dismiss}
-          sx={{ flexShrink: 0, color: "var(--accent)", fontWeight: 600, minWidth: 0 }}>
+          sx={{ flexShrink: 0, color: "var(--accent)", fontWeight: 700, minWidth: 0 }}>
         {t("transcript.coach_dismiss")}
       </Button>
     </Box>
@@ -727,7 +727,7 @@ export function TranscriptViewer({ segments, transcriptId, onSegmentEdited }: Pr
           : t("transcript.retranscribe_done", { count: undo?.inserted ?? 0 })}
         action={
           <Button size="small" onClick={() => void undoRetranscribe()}
-              sx={{ color: "var(--accent)", fontWeight: 600 }}>
+              sx={{ color: "var(--accent)", fontWeight: 700 }}>
             {t("history.undo")}
           </Button>
         }
@@ -742,7 +742,7 @@ export function TranscriptViewer({ segments, transcriptId, onSegmentEdited }: Pr
         message={t("transcript.delete_done")}
         action={
           <Button size="small" onClick={() => void undoDelete()}
-              sx={{ color: "var(--accent)", fontWeight: 600 }}>
+              sx={{ color: "var(--accent)", fontWeight: 700 }}>
             {t("history.undo")}
           </Button>
         }
@@ -757,7 +757,7 @@ export function TranscriptViewer({ segments, transcriptId, onSegmentEdited }: Pr
         message={t("transcript.align_done", { count: alignUndo?.changed ?? 0 })}
         action={
           <Button size="small" onClick={() => void undoAlign()}
-              sx={{ color: "var(--accent)", fontWeight: 600 }}>
+              sx={{ color: "var(--accent)", fontWeight: 700 }}>
             {t("history.undo")}
           </Button>
         }
@@ -1595,7 +1595,7 @@ function EditableTime({
         background: "none", border: "none", cursor: "text", p: 0,
         fontSize: 11,
         color: warn ? "var(--danger)" : "text.muted",
-        fontWeight: warn ? 600 : 400,
+        fontWeight: warn ? 700 : 400,
         "&:hover": { color: warn ? "var(--danger)" : "text.secondary", textDecoration: "underline dotted" },
       }}
       title="Click to edit"

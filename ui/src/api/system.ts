@@ -79,6 +79,50 @@ export async function unloadModel(backend: string): Promise<boolean> {
   return data.data.unloaded;
 }
 
+export interface BenchmarkStrategy {
+  strategy: string;          // "sequential" | "batched_8" | "concurrent_2" | ...
+  wall_sec?: number;
+  runs?: number;
+  throughput_xrt?: number;   // audio-seconds processed per wall-second
+  peak_vram_mb?: number | null;
+  error?: string;
+}
+
+export interface BenchmarkResult {
+  hardware: {
+    gpu_available: boolean; gpu_name: string | null; vram_total_mb: number | null;
+    cuda: string | null; gpu_count: number; unified_memory: boolean; cpu_count: number | null;
+  };
+  audio_sec: number;
+  model: string;
+  compute_type: string;
+  results: BenchmarkStrategy[];
+  recommendation: {
+    max_performance?: string;
+    balanced?: string;
+    safe?: string;
+    notes?: string[];
+    error?: string;
+  };
+  // Top-level signals: "already_running" (a run is already in progress) or a
+  // partial result flagged cancelled.
+  error?: string;
+  cancelled?: boolean;
+}
+
+export async function runBenchmark(
+  opts: { model?: string; compute_type?: string; clip_sec?: number; job_id?: string } = {},
+): Promise<BenchmarkResult> {
+  const { data } = await apiClient.post<{ data: BenchmarkResult }>(
+    "/api/v1/system/benchmark", opts, { timeout: 320_000 },
+  );
+  return data.data;
+}
+
+export async function cancelBenchmark(): Promise<void> {
+  await apiClient.post("/api/v1/system/benchmark/cancel");
+}
+
 export interface CacheInfo {
   size_bytes: number;
   file_count: number;

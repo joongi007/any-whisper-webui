@@ -15,15 +15,6 @@ export function formatRelative(iso: string | null | undefined, now = new Date())
   return d.toISOString().slice(0, 10);
 }
 
-/** 1234567 → "1.2 MB". */
-export function formatBytes(n: number | null | undefined): string {
-  if (n == null) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0, v = n;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(v >= 10 ? 0 : 1)} ${units[i]}`;
-}
-
 /** "ko" → "한국어", "en" → "English", unknown → as-is. */
 const LANG_NAMES: Record<string, string> = {
   auto: "자동", ko: "한국어", en: "English", ja: "日本語", zh: "中文",

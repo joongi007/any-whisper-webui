@@ -1,0 +1,17 @@
+# CPU-only overlay — for machines without an NVIDIA GPU (macOS, GPU-less PCs).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+#
+# It drops the GPU device reservation from the ai worker so the container can
+# start on CPU (the base compose requests a GPU, which fails without one).
+# Pick a small model + int8 in .env for usable CPU speed:
+#   API_DEFAULT_MODEL=small
+#   API_DEFAULT_COMPUTE_TYPE=int8
+#   AI_PREWARM_MODEL=base
+services:
+  ai:
+    deploy:
+      resources:
+        # !reset (Compose 2.24+) removes the base GPU reservation entirely —
+        # a plain empty value gets ignored by the merge.
+        reservations: !reset null

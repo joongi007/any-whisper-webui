@@ -5,7 +5,7 @@
 필요하면 수평 확장할 수 있게 만든 게 핵심이다.
 
 > 이 문서는 요약 + 진입점이다. 설계 결정의 배경과 더 깊은 내용은
-> [.refs/ARCHITECTURE.md](./.refs/ARCHITECTURE.md), [.refs/COMMUNICATION.md](./.refs/COMMUNICATION.md) 참고.
+> [ARCHITECTURE-design.md](./ARCHITECTURE-design.md), [COMMUNICATION.md](./COMMUNICATION.md) 참고.
 
 ## 한눈에 보기
 
@@ -54,7 +54,8 @@ Browser ──HTTP/WS──► proxy(Caddy :8080) ──► api  ──jobs.*─
 ├── DESIGN.md       UI 디자인 토큰/원칙 (impeccable 컨텍스트)
 ├── PRODUCT.md      제품 의도/사용자/안티레퍼런스 (impeccable 컨텍스트)
 ├── NOTICE / LICENSE
-└── .refs/          설계 기록 · 리서치 · 디자인 이터레이션
+├── docs/           아키텍처 · 통신 계약 · 설계 기록
+└── .refs/          리서치 원본 · 디자인 이터레이션 (참조 자료)
 ```
 
 ## 기술 스택

@@ -224,6 +224,33 @@ async def _on_retranscribe(msg) -> None:
     await nats_client.reply(msg, result)
 
 
+async def _on_benchmark(msg) -> None:
+    """`ai.bench.run` — measure sequential / concurrent / batched strategies on
+    this hardware and reply with results + a recommendation. Holds the GPU for
+    the duration, so it's a deliberate, exclusive operation (can take minutes)."""
+    from ai.bench import run_benchmark
+    try:
+        body = json.loads(msg.data.decode()) if msg.data else {}
+    except json.JSONDecodeError:
+        await nats_client.reply(msg, {"error": "bad_json"})
+        return
+    try:
+        result = await run_benchmark(body)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("benchmark_handler_failed")
+        result = {"error": str(exc)}
+    await nats_client.reply(msg, result)
+
+
+async def _on_benchmark_cancel(msg) -> None:
+    """`ai.bench.cancel` — cooperatively stop an in-flight benchmark at the next
+    strategy boundary. Broadcast (no queue group) so whichever worker is running
+    it sees the flag."""
+    from ai.bench import cancel_benchmark
+    cancel_benchmark()
+    await nats_client.reply(msg, {"ok": True})
+
+
 async def _on_align_speakers(msg) -> None:
     """`ai.diarize.align` — voice-fingerprint the user's reference lines and
     assign every target line to the nearest reference speaker. Synchronous
@@ -323,6 +350,8 @@ async def _amain() -> None:
     await nats_client.nc().subscribe("ai.translate.text", cb=_on_translate_text, **qopts)
     await nats_client.nc().subscribe("ai.retranscribe.run", cb=_on_retranscribe,  **qopts)
     await nats_client.nc().subscribe("ai.diarize.align",    cb=_on_align_speakers, **qopts)
+    await nats_client.nc().subscribe("ai.bench.run",        cb=_on_benchmark,      **qopts)
+    await nats_client.nc().subscribe("ai.bench.cancel",     cb=_on_benchmark_cancel, **qopts)
     await nats_client.nc().subscribe("realtime.start",    cb=_on_realtime_start, **qopts)
     # Cancel is broadcast (no queue group) so every worker checks its local
     # _running_jobs — the one that owns the task cancels, the others no-op.

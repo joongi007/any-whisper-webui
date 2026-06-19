@@ -15,6 +15,11 @@ class TranscribeOptions:
     beam_size: int = 5
     temperature: float = 0.0
     compute_type: str = "float16"
+    # 0 / 1 → sequential. >1 → faster-whisper BatchedInferencePipeline with this
+    # batch size (chunks the file by VAD and batches the chunks → higher
+    # throughput on GPUs with spare VRAM). Only the faster_whisper backend
+    # honours this; others run sequentially.
+    batch_size: int = 0
 
     # Hallucination control — Whisper has a known failure mode where on silence
     # or near-silence it loops on a phrase ("thank you. thank you. ..."). These

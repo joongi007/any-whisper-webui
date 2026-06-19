@@ -1,6 +1,7 @@
 import { Pause, PlayArrow } from "@mui/icons-material";
 import { Box, IconButton, Skeleton, Typography } from "@mui/material";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import WaveSurfer from "wavesurfer.js";
 
 import { formatTimecode } from "../../utils/time";
@@ -68,6 +69,7 @@ export const WaveformPlayer = forwardRef<WaveformHandle, Props>(
     regionSelectable, onRegionSelect, selectedRegion, highlightRegions, activeRegion,
     editableRegion, onRegionEdit,
   }, ref) {
+    const { t } = useTranslation();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const wsRef = useRef<WaveSurfer | null>(null);
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
@@ -343,6 +345,9 @@ export const WaveformPlayer = forwardRef<WaveformHandle, Props>(
         p: 1, borderRadius: 2,
         border: "1px solid var(--border-default)",
         bgcolor: "background.paper",
+        // DESIGN: the audio player frame carries shadow-2 (it's a tool the user
+        // returns to while scrolling a long transcript — lift it off the page).
+        boxShadow: "var(--shadow-2)",
       }}>
         <IconButton
           size="small" disabled={phase !== "ready"}
@@ -350,7 +355,7 @@ export const WaveformPlayer = forwardRef<WaveformHandle, Props>(
             const ws = wsRef.current; if (!ws) return;
             if (ws.isPlaying()) ws.pause(); else void ws.play();
           }}
-          aria-label={playing ? "pause" : "play"}
+          aria-label={playing ? t("common.pause") : t("common.play")}
           sx={{
             width: 36, height: 36,
             bgcolor: "var(--accent)", color: "var(--accent-fg)",

@@ -1,14 +1,17 @@
 import {
-  ArrowForward, Bolt, Folder, Mic, YouTube,
+  ArrowForward, Bolt, Folder, Mic, Speed, YouTube,
 } from "@mui/icons-material";
-import { Box, Skeleton, Stack, Typography } from "@mui/material";
+import { Box, Button, Skeleton, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { listJobs, type JobView } from "../api/jobs";
-import { fetchGpuStats, fetchSystemInfo } from "../api/system";
+import { fetchGpuStats, fetchSystemInfo, type BenchmarkStrategy } from "../api/system";
+import { strategyLabel } from "../components/settings/BenchmarkPanel";
 import { LoadedModelsCard } from "../components/settings/LoadedModelsCard";
+import { useSettingsDialog } from "../components/settings/SettingsDialog";
+import { BENCH_STALE_MS, useBenchmarkStore } from "../stores/benchmarkStore";
 import { formatLanguage, formatRelative } from "../utils/format";
 import { formatDuration } from "../utils/time";
 
@@ -19,7 +22,12 @@ import { formatDuration } from "../utils/time";
 
 export function DashboardPage() {
   const sys = useQuery({ queryKey: ["system-info"], queryFn: fetchSystemInfo, refetchInterval: 5_000 });
-  const jobs = useQuery({ queryKey: ["history"], queryFn: () => listJobs({ size: 5 }) });
+  // Distinct key from HistoryPage's useInfiniteQuery(["history"]) — sharing it
+  // made this read the infinite-query shape ({pages}) and lose `.items`.
+  const jobs = useQuery({
+    queryKey: ["recent-jobs"], queryFn: () => listJobs({ size: 5 }),
+    refetchOnWindowFocus: true,
+  });
 
   return (
     <Stack spacing={5} sx={{ maxWidth: 1080 }}>
@@ -32,7 +40,46 @@ export function DashboardPage() {
         <SystemBlock data={sys.data} loading={sys.isLoading} />
         <RecentBlock data={jobs.data?.items} loading={jobs.isLoading} />
       </Box>
+      <BenchmarkSummary />
     </Stack>
+  );
+}
+
+function BenchmarkSummary() {
+  const { t } = useTranslation();
+  const result = useBenchmarkStore((s) => s.result);
+  const storeRunning = useBenchmarkStore((s) => s.running);
+  const startedAt = useBenchmarkStore((s) => s.startedAt);
+  const openSettings = useSettingsDialog();
+
+  const running = storeRunning && (startedAt == null || Date.now() - startedAt < BENCH_STALE_MS);
+  const valid = (result?.results ?? []).filter((r) => !r.error && r.throughput_xrt != null);
+  const best = valid.reduce<BenchmarkStrategy | null>(
+    (m, r) => (!m || (r.throughput_xrt ?? 0) > (m.throughput_xrt ?? 0) ? r : m), null);
+
+  return (
+    <Box sx={{
+      display: "flex", alignItems: "center", gap: 2, p: 2,
+      border: "1px solid var(--border-default)", borderRadius: 2, bgcolor: "background.paper",
+    }}>
+      <Speed sx={{ fontSize: 20, color: "text.muted", flexShrink: 0 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{t("bench.title")}</Typography>
+        <Typography variant="caption" sx={{ color: "text.muted" }}>
+          {running
+            ? t("bench.running")
+            : best
+            ? t("bench.summary_done", {
+                strategy: strategyLabel(best.strategy, t),
+                xrt: best.throughput_xrt,
+              })
+            : t("bench.summary_none")}
+        </Typography>
+      </Box>
+      <Button size="small" variant="outlined" onClick={openSettings} sx={{ fontSize: 12, flexShrink: 0 }}>
+        {running ? t("bench.view") : best ? t("bench.run_again") : t("bench.run")}
+      </Button>
+    </Box>
   );
 }
 
@@ -63,9 +110,9 @@ function StartRow() {
       borderTop: "1px solid var(--border-default)",
       borderBottom: "1px solid var(--border-default)",
     }}>
-      <StartTile to="/file"     icon={<Folder />}    label={t("dashboard.start_file")}     hint="mp3, mp4, wav, m4a, flac" />
-      <StartTile to="/youtube"  icon={<YouTube />}   label={t("dashboard.start_youtube")}  hint="watch, live, shorts URLs" />
-      <StartTile to="/realtime" icon={<Mic />}       label={t("dashboard.start_realtime")} hint="microphone or tab audio" />
+      <StartTile to="/file"     icon={<Folder />}    label={t("dashboard.start_file")}     hint={t("dashboard.start_file_hint")} />
+      <StartTile to="/youtube"  icon={<YouTube />}   label={t("dashboard.start_youtube")}  hint={t("dashboard.start_youtube_hint")} />
+      <StartTile to="/realtime" icon={<Mic />}       label={t("dashboard.start_realtime")} hint={t("dashboard.start_realtime_hint")} />
     </Box>
   );
 }
@@ -132,16 +179,16 @@ function SystemBlock({ data, loading }: { data: ReturnType<typeof useQuery<unkno
           {loading && <Skeleton variant="text" width={180} />}
           {!loading && sys && (
             <Stack spacing={1}>
-              <Row label="GPU"     value={sys.gpu.available ? (sys.gpu.name ?? "·") : "not available"}
+              <Row label="GPU"     value={sys.gpu.available ? (sys.gpu.name ?? "·") : t("dashboard.sys_unavailable")}
                    tone={sys.gpu.available ? "good" : "muted"} />
               {sys.gpu.available && <GpuLive vramTotalMb={sys.gpu.vram_total_mb ?? 0} />}
               <Row label="CUDA"    value={sys.gpu.cuda ?? "·"} mono />
               <Row label="ffmpeg"  value={sys.ffmpeg_version ?? "·"} mono />
-              <Row label="ai"      value={sys.ai_online ? "online" : "offline"} tone={sys.ai_online ? "good" : "bad"} />
+              <Row label="ai"      value={sys.ai_online ? t("dashboard.sys_online") : t("dashboard.sys_offline")} tone={sys.ai_online ? "good" : "bad"} />
               <Row label="diarize"
-                   value={sys.diarize_available ? "ready"
-                        : sys.diarize_token_present ? "needs terms"
-                        : "needs HF token"}
+                   value={sys.diarize_available ? t("dashboard.sys_ready")
+                        : sys.diarize_token_present ? t("dashboard.sys_needs_terms")
+                        : t("dashboard.sys_needs_token")}
                    tone={sys.diarize_available ? "good" : "muted"} />
               <Row label="engines" value={sys.backends_available.join(", ")} mono />
             </Stack>
@@ -200,8 +247,10 @@ function MiniBar({ label, pct, suffix }: { label: string; pct: number; suffix: s
         bgcolor: "var(--bg-subtle)", overflow: "hidden",
       }}>
         <Box sx={{
-          height: "100%", width: `${pct}%`, bgcolor: fill,
-          transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1), background-color 400ms",
+          // Animate transform, not width (DESIGN: no layout-property animation).
+          height: "100%", width: "100%", transformOrigin: "left center",
+          transform: `scaleX(${pct / 100})`, bgcolor: fill,
+          transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1), background-color 400ms",
         }} />
       </Box>
       <Typography variant="caption" className="font-mono" sx={{

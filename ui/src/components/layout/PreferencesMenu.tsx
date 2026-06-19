@@ -116,9 +116,9 @@ export function PreferencesMenu() {
               value={themeMode}
               onChange={setThemeMode}
               options={[
-                { value: "system", icon: <SettingsBrightness />, title: "System" },
-                { value: "light", icon: <LightMode />, title: "Light" },
-                { value: "dark", icon: <DarkMode />, title: "Dark" },
+                { value: "system", icon: <SettingsBrightness />, title: t("prefs.theme_system") },
+                { value: "light", icon: <LightMode />, title: t("prefs.theme_light") },
+                { value: "dark", icon: <DarkMode />, title: t("prefs.theme_dark") },
               ]}
             />
           </Row>

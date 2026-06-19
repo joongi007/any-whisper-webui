@@ -22,7 +22,7 @@ export function DeletionSnackbar() {
       message={active ? t("history.bulk_delete_pending", { count: active.count }) : ""}
       action={
         <Button size="small" onClick={undo}
-            sx={{ color: "var(--accent)", fontWeight: 600 }}>
+            sx={{ color: "var(--accent)", fontWeight: 700 }}>
           {t("history.undo")}
         </Button>
       }

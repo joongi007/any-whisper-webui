@@ -1,34 +1,59 @@
 ---
 name: communication
-description: REST + WebSocket + NATS 계약 — api/ai/ui 3-서비스 통신 명세 (r2)
+description: REST + WebSocket + NATS 계약 — api/ai/ui 3-서비스 통신 명세 (r3)
 type: contract
-date: 2026-05-10
-revision: 2
-supersedes: 2026-05-10 r1 (monolith)
+date: 2026-06-19
+revision: 3
+supersedes: 2026-05-10 r2
 ---
 
-# 통신 계약 — any-whisper-webui (revision 2)
+# 통신 계약 — any-whisper-webui (revision 3)
 
-**Date:** 2026-05-10
+**Date:** 2026-06-19
 **JSON 키 컨벤션:** `snake_case` (플레이북 §11.7).
 **라우트 prefix:** `/api/v1`. WS: `/ws/...`.
+
+## r3 변경사항 (요약)
+
+큰 구조(3서비스 · JOBS/EVENTS 스트림 · gpu_lock KV)는 r2와 동일. 그동안 추가된 표면을 반영:
+
+- **편집기 REST 다수 추가** — 세그먼트 CRUD(split/insert/duplicate/move/merge/**delete**),
+  시간범위 교체, 구간 재변환, 화자 rename/**align**(임베딩 기반 재할당)/set_bulk, 캐시 관리,
+  잡 cancel/retry, peaks/audio 스트림.
+- **동기 req-reply NATS subjects 다수 추가** (§B.2.1) — 시스템 정보/모델 로드·언로드,
+  텍스트 번역, 구간 재변환, 화자 정렬, **성능 벤치마크**. 모두 queue group `ai-workers`로
+  한 워커가 응답. JOBS 큐(비동기)와 별개의 동기 경로.
+- **실행 모델에 배치 옵션** — TranscribeJobMsg `options.batch_size`(0/1=순차, >1=배치).
+  배치는 faster-whisper BatchedInferencePipeline + word-timestamp 재세그먼트(§B.3 참고).
+- **`jobs.*.cancel`** 브로드캐스트 subject — 실행 중인 잡 협조적 취소.
 
 ## A. 브라우저 ↔ api (REST / WS)
 
 ### REST 요약
+
+시스템·잡·파일:
 - `GET  /api/v1/system/info`
 - `GET  /api/v1/system/models?backend=...`
-- `POST /api/v1/files` (multipart)
-- `GET  /api/v1/files/{file_id}`
+- `GET  /api/v1/system/cache` / `DELETE /api/v1/system/cache`  (YouTube 캐시 관리)
+- `POST /api/v1/system/benchmark`  (실행 전략 벤치마크 → ai에 동기 위임)
+- `POST /api/v1/files` (multipart) / `GET /api/v1/files/{file_id}`
 - `POST /api/v1/jobs/transcribe`  → 즉시 `{job_id}` 반환
-- `POST /api/v1/jobs/translate`
-- `POST /api/v1/jobs/uvr`
-- `POST /api/v1/jobs/diarize`
 - `GET  /api/v1/jobs/{id}` / `DELETE /api/v1/jobs/{id}`
+- `POST /api/v1/jobs/{id}/cancel` / `POST /api/v1/jobs/{id}/retry`
 - `GET  /api/v1/jobs?kind=&status=&page=&size=`
-- `GET  /api/v1/transcripts/{id}` / `GET /api/v1/transcripts/{id}/export?format=srt|vtt|txt`
 - `POST /api/v1/youtube/meta`
 - `POST /api/v1/translate/text`
+
+트랜스크립트 · 편집기 (transcripts):
+- `GET  /api/v1/transcripts/{id}` / `GET /{id}/export?format=srt|vtt|txt`
+- `GET  /api/v1/transcripts/{id}/peaks` / `GET /{id}/audio` (+ HEAD)
+- `PATCH  /{id}/segments/{seq}` / `DELETE /{id}/segments/{seq}`
+- `POST /{id}/segments/{seq}/split|insert_after|duplicate|move|merge_next`
+- `POST /{id}/segments/replace_time_range`
+- `POST /{id}/retranscribe`  (seq 또는 시간범위, ai에 동기 위임)
+- `POST /{id}/speakers/rename` (라벨 일괄) / `POST /{id}/speakers/align` (임베딩 재할당) / `POST /{id}/speakers/set_bulk`
+
+> `jobs/translate|uvr|diarize` 독립 큐는 계획만 있고 v1 미구현 (transcribe 파이프라인이 후처리로 흡수).
 
 스키마는 r1과 동일 (snake_case, `{data: ...}` 래핑).
 
@@ -92,6 +117,22 @@ supersedes: 2026-05-10 r1 (monolith)
 | ai → api | `realtime.{sid}.error` | ErrorMsg | plain |
 | ai → api | `realtime.{sid}.stopped` | empty | plain |
 
+### B.2.1 동기 req-reply subjects (plain NATS, queue group `ai-workers`)
+
+JOBS 큐(비동기 워크큐)와 별개로, api가 결과를 바로 받아야 하는 작업은 plain NATS
+request-reply로 처리한다. queue group `ai-workers` 덕에 워커 하나만 응답한다.
+
+| 방향 | subject | 용도 | 타임아웃 |
+|---|---|---|---|
+| api → ai | `ai.system.info` | GPU/CUDA/백엔드/모델/diarize 접근성 프로브 | ~2s |
+| api → ai | `ai.system.gpu_stats` | nvidia-smi 실시간 샘플 | ~2.5s |
+| api → ai | `ai.system.load` / `ai.system.unload` | 모델 적재/해제 | ~120s / ~10s |
+| api → ai | `ai.translate.text` | 단건 텍스트 번역 | ~20s |
+| api → ai | `ai.retranscribe.run` | 구간 재변환(스팬 추론) | ~180s |
+| api → ai | `ai.diarize.align` | 기준 화자 임베딩 기반 전체 재할당 | ~180s |
+| api → ai | `ai.bench.run` | 실행 전략(순차/동시성/배치) 벤치마크 | ~200s |
+| api → ai (broadcast) | `jobs.*.cancel` | 실행 중 잡 협조적 취소 (큐 그룹 없음 — 전 워커가 확인, 소유 워커가 취소) | fire-and-forget |
+
 ### B.3 메시지 스키마 (JSON)
 
 ```jsonc
@@ -108,7 +149,11 @@ supersedes: 2026-05-10 r1 (monolith)
                   "uvr": {"enabled": false, "model": "htdemucs", "stem": "vocals"} },
   "postprocess": { "diarize": {"enabled": false, "min_speakers": null, "max_speakers": null},
                    "translate_text": {"enabled": false, "provider": "nllb", "target_lang": "en"} },
-  "options": { "word_timestamps": true, "compute_type": "float16" }
+  // options는 자유형 dict (api는 그대로 전달). batch_size > 1 이면 ai가
+  // BatchedInferencePipeline(VAD 경계 튜닝)로 처리 후 word-timestamp 기준
+  // 재세그먼트해서 순차와 비슷한 자막 경계로 정규화한다. 배치 결과가 비정상
+  // (반복 루프·빈 출력)이면 자동으로 순차로 폴백한다. 0/1 = 순차.
+  "options": { "word_timestamps": true, "compute_type": "float16", "batch_size": 0 }
 }
 
 // ProgressMsg
@@ -184,6 +229,6 @@ supersedes: 2026-05-10 r1 (monolith)
 - Postgres 마이그레이션
 
 ## References
-- `.refs/ARCHITECTURE.md` (r2)
+- `docs/ARCHITECTURE-design.md` (설계 기록)
 - `.refs/2026-05-10-nats-vs-redis.md`
 - 플레이북 §5.4, §7.1, §11.7

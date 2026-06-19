@@ -69,9 +69,17 @@ supersedes: 2026-05-10 r1 (monolith design)
 - AI 계산 0. 모델 라이브러리 임포트 없음 (Docker 이미지 가벼움).
 
 ### 2.2 `ai` (워커, N개)
-- NATS WorkQueue pull consumer로 잡 한 건씩 받음.
+- NATS WorkQueue pull consumer로 잡 한 건씩 받음 (비동기 경로).
+- **동기 req-reply 경로**(queue group `ai-workers`)도 함께 처리 — 시스템 정보, 모델 적재/해제,
+  텍스트 번역, 구간 재변환, 화자 정렬, 성능 벤치마크. api가 결과를 바로 받아야 하는 작업용.
+  (목록은 COMMUNICATION.md §B.2.1)
 - 모든 파이프라인(whisper / VAD / UVR / diarize / NLLB / DeepL) 보유.
-- GPU 직렬화: 한 ai 인스턴스 안에서 `asyncio.Semaphore(1)`.
+- GPU 직렬화: 인스턴스 내 `asyncio.Semaphore(1)` + **워커 간 NATS KV 락**(`gpu.lock`, TTL).
+  단일 GPU를 공유하는 멀티 워커는 이 KV 락으로 직렬화된다(멀티 GPU는 워커당 GPU 핀 + 락 생략).
+- **실행 전략**(transcribe): `options.batch_size`로 순차/배치 선택. 배치는
+  BatchedInferencePipeline(VAD 경계 튜닝) + word-timestamp 재세그먼트로 순차 수준 품질을
+  맞추고, 결과가 비정상(반복 루프·빈 출력)이면 순차로 자동 폴백한다. 하드웨어별 최적은
+  `ai.bench.run`으로 실측.
 - **마이크로배치**: NLLB 번역 요청을 50ms 또는 8건 단위로 합쳐 한 forward.
 - DB 미접근. 결과는 NATS publish + 파일은 `/data/outputs/{job_id}/`.
 - 모델 가중치 캐시 `/data/models` (HF/torch).
@@ -219,14 +227,16 @@ supersedes: 2026-05-10 r1 (monolith design)
 ├── LICENSE
 ├── NOTICE
 ├── README.md
-└── .refs/
-    ├── ARCHITECTURE.md         # 본 문서
-    ├── COMMUNICATION.md        # REST + WS + NATS 주제 계약
+├── docs/
+│   ├── ARCHITECTURE.md         # 요약 · 진입점
+│   ├── ARCHITECTURE-design.md  # 본 문서 (설계 기록)
+│   └── COMMUNICATION.md        # REST + WS + NATS 주제 계약
+└── .refs/                      # 리서치 원본 · 디자인 이터레이션 (참조)
     ├── 2026-05-10-nats-vs-redis.md
     ├── 2026-05-10-whisper-backends.md
     ├── 2026-05-10-realtime-audio.md
     ├── 2026-05-10-licenses.md
-    └── design/  (10회 UI 검토 — 그대로 유효)
+    └── design/  (10회 UI 검토, 그대로 유효)
 ```
 
 > **Python 패키지명 = 폴더명 `api`/`ai`**: 사용자 결정. `from api.config import settings` 형태. `api`/`ai`라는 이름이 PyPI에 있을 수 있으나 컨테이너 내부에서 우리 패키지만 설치하므로 충돌 없음.

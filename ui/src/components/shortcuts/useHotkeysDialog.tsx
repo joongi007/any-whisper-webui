@@ -65,8 +65,8 @@ export function HotkeysDialog() {
           <Close fontSize="small" />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: 2 }}>
-        <Stack spacing={0.5}>
+      <DialogContent sx={{ p: 0 }}>
+        <Stack spacing={0.5} sx={{ px: 2, pt: 2, pb: 2 }}>
           {SHORTCUTS.map((sc) => (
             <Stack key={sc.k} direction="row" alignItems="center" justifyContent="space-between"
                 sx={{ py: 0.75 }}>

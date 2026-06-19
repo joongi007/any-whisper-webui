@@ -1,5 +1,5 @@
 import { Close } from "@mui/icons-material";
-import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
+import { Box, Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import { create } from "zustand";
 import { useTranslation } from "react-i18next";
 
@@ -45,8 +45,14 @@ export function SettingsDialog() {
           <Close fontSize="small" />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: 3 }}>
-        <SettingsPage />
+      {/* MUI forces `DialogTitle + DialogContent → padding-top: 0`, which even
+          an sx longhand can't reliably beat. So zero the content padding and let
+          an inner Box own it — guarantees the first section breathes below the
+          title bar. */}
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ px: 3, pt: 3, pb: 3 }}>
+          <SettingsPage />
+        </Box>
       </DialogContent>
     </Dialog>
   );

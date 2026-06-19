@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ModelSelect } from "../components/pipeline/ModelSelect";
+import { BenchmarkPanel } from "../components/settings/BenchmarkPanel";
 import { CacheCard } from "../components/settings/CacheCard";
 import { HuggingFaceTokenCard } from "../components/settings/HuggingFaceTokenCard";
 import { LoadedModelsCard } from "../components/settings/LoadedModelsCard";
@@ -22,8 +23,8 @@ export function SettingsPage() {
   return (
     <Box sx={{ maxWidth: 560 }}>
       <Stack spacing={5}>
-        <Section label="General">
-          <TextField select label={t("mode.simple") + " / " + t("mode.advanced")} size="small" value={s.uiMode}
+        <Section label={t("settings.general")}>
+          <TextField select label={t("prefs.ui_mode")} size="small" value={s.uiMode}
               onChange={(e) => s.setPartial({ uiMode: e.target.value as never })}>
             <MenuItem value="simple">{t("mode.simple")}</MenuItem>
             <MenuItem value="advanced">{t("mode.advanced")}</MenuItem>
@@ -60,13 +61,33 @@ export function SettingsPage() {
           </Stack>
         </Section>
 
+        <Section label={t("settings.performance")}>
+          <Stack spacing={2}>
+            <TextField select size="small" label={t("settings.processing_label")}
+                value={s.processingMode}
+                helperText={t("settings.processing_hint")}
+                onChange={(e) => s.setPartial({ processingMode: e.target.value as never })}>
+              <MenuItem value="sequential">{t("settings.processing_sequential")}</MenuItem>
+              <MenuItem value="batched">{t("settings.processing_batched")}</MenuItem>
+            </TextField>
+            {advanced && s.processingMode === "batched" && (
+              <TextField
+                  type="number" size="small" label={t("settings.batch_size_label")}
+                  value={s.batchSize}
+                  inputProps={{ min: 2, max: 32, step: 1 }}
+                  onChange={(e) => s.setPartial({ batchSize: Math.max(2, Number(e.target.value) || 8) })} />
+            )}
+            <BenchmarkPanel />
+          </Stack>
+        </Section>
+
         {/* These two bring their own overline + status meta. Don't double-label. */}
         <LoadedModelsCard />
         <HuggingFaceTokenCard />
 
         <Section label={t("pipeline.translate_text")}>
           <Stack spacing={2}>
-            <TextField select label="provider" size="small" value={s.translateProvider}
+            <TextField select label={t("settings.translate_provider_label")} size="small" value={s.translateProvider}
                 onChange={(e) => s.setPartial({ translateProvider: e.target.value as never })}>
               <MenuItem value="nllb">NLLB (CC-BY-NC)</MenuItem>
               <MenuItem value="deepl">DeepL</MenuItem>

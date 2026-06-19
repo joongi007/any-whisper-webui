@@ -76,6 +76,15 @@ export function buildTheme(mode: "light" | "dark"): Theme {
           fontSize: 11, padding: "6px 10px",
         } },
       },
+      // Elevation: floating surfaces get the DESIGN.md shadow tokens so they
+      // read as floating instead of flat-with-a-border. The global MuiPaper
+      // override zeroes elevation; these put depth back exactly where the
+      // design system asks for it (popovers/menus/dropdowns → shadow-2,
+      // modals → shadow-3). Tokens are theme-aware (stronger in dark).
+      MuiMenu:     { styleOverrides: { paper: { boxShadow: "var(--shadow-2)" } } },
+      MuiPopover:  { styleOverrides: { paper: { boxShadow: "var(--shadow-2)" } } },
+      MuiDialog:   { styleOverrides: { paper: { boxShadow: "var(--shadow-3)" } } },
+      MuiAutocomplete: { styleOverrides: { paper: { boxShadow: "var(--shadow-2)" } } },
       MuiSwitch: { styleOverrides: { root: { padding: 7 } } },
       MuiAppBar:  { styleOverrides: { root: { boxShadow: "none" } } },
       MuiToolbar: { styleOverrides: { dense: { minHeight: 48 } } },
