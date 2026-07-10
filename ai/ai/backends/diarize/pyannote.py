@@ -56,17 +56,21 @@ class PyannoteDiarizer:
         min_speakers: int | None = None, max_speakers: int | None = None,
     ) -> list[SpeakerTurn]:
         await self.load()
+        from ai.audio.staging import local_copy
 
-        def _run() -> Any:
-            kw: dict[str, Any] = {}
-            if min_speakers:
-                kw["min_speakers"] = min_speakers
-            if max_speakers:
-                kw["max_speakers"] = max_speakers
-            return self._pipe(str(wav_path), **kw)
+        # pyannote's torchcodec reader chokes ('Bad address') on 9p/DrvFs bind
+        # mounts, so read from a container-local copy.
+        async with local_copy(wav_path) as local:
+            def _run() -> Any:
+                kw: dict[str, Any] = {}
+                if min_speakers:
+                    kw["min_speakers"] = min_speakers
+                if max_speakers:
+                    kw["max_speakers"] = max_speakers
+                return self._pipe(str(local), **kw)
 
-        async with gpu_lock:
-            diar = await asyncio.to_thread(_run)
+            async with gpu_lock:
+                diar = await asyncio.to_thread(_run)
 
         # pyannote.audio 4.x wraps the result in a DiarizeOutput dataclass; the
         # Annotation (with itertracks) lives on `.speaker_diarization`. 3.x

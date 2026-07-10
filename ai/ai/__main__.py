@@ -338,8 +338,21 @@ async def _amain() -> None:
     except Exception:  # noqa: BLE001
         log.warning("gpu_lock_kv_unavailable_falling_back_to_local")
 
-    # JOBS pull consumer (WorkQueue — built-in load balance across workers)
-    psub = await nats_client.js().pull_subscribe("jobs.transcribe", durable="ai-workers")
+    # JOBS pull consumer (WorkQueue — built-in load balance across workers).
+    # The JOBS stream is created by api on startup; on a fresh NATS store ai may
+    # get here first, so wait for the stream instead of crashing.
+    psub = None
+    for attempt in range(60):
+        try:
+            psub = await nats_client.js().pull_subscribe("jobs.transcribe", durable="ai-workers")
+            break
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 0:
+                log.info("waiting_for_jobs_stream", error=str(exc))
+            await asyncio.sleep(1.0)
+    if psub is None:
+        # Final attempt — let it raise so the container restarts loudly.
+        psub = await nats_client.js().pull_subscribe("jobs.transcribe", durable="ai-workers")
 
     # Req-reply with queue group — one worker answers each request.
     qopts = {"queue": "ai-workers"}

@@ -101,7 +101,9 @@ async def cancel_job(job_id: str, session: SessionDep) -> dict:
     # mark the DB row only after — the event_consumer also flips the row on
     # the worker's `failed` event, but doing it here gives the UI an
     # immediate optimistic state without waiting on the round trip.
-    await nats_client.publish_plain(f"jobs.{job_id}.cancel", {})
+    # Empty body — the ai handler keys off the subject (job_id), not the payload.
+    # (publish_plain takes bytes; passing a dict here used to crash the request.)
+    await nats_client.publish_plain(f"jobs.{job_id}.cancel", b"")
     await repo.mark_cancelled(job_id)
     log.info("job_cancel_requested", job_id=job_id, prior_status=job.status)
     return {"data": {"cancelled": True, "status": "cancelled"}}

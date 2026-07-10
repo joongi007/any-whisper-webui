@@ -220,12 +220,18 @@ async def run_transcribe(msg: dict[str, Any]) -> None:
         diar_cfg = post.get("diarize") or {}
         if diar_cfg.get("enabled"):
             await _progress(job_id, STAGE_DIARIZE, 0.78)
-            turns = await diarizer.diarize(
-                asr_input,
-                min_speakers=diar_cfg.get("min_speakers"),
-                max_speakers=diar_cfg.get("max_speakers"),
-            )
-            assign_speakers(collected, turns)
+            try:
+                turns = await diarizer.diarize(
+                    asr_input,
+                    min_speakers=diar_cfg.get("min_speakers"),
+                    max_speakers=diar_cfg.get("max_speakers"),
+                )
+                assign_speakers(collected, turns)
+            except Exception as exc:  # noqa: BLE001
+                # Diarization is post-processing — never lose the whole
+                # transcript over it. Log and continue with no speaker labels
+                # (audio I/O error, gated model, OOM, …).
+                log.warning("diarize_failed_continuing", job_id=job_id, error=str(exc))
 
         tr_cfg = post.get("translate_text") or {}
         if tr_cfg.get("enabled"):

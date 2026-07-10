@@ -6,7 +6,10 @@ services:
     pull_policy: missing
     command: ["-js", "-sd", "/data"]
     volumes:
-      - ./data/nats:/data
+      # Docker-managed volume (ext4), NOT a ./data bind mount. JetStream does
+      # heavy random block I/O that fails on 9p/DrvFs when the repo lives on a
+      # Windows drive (/mnt/*) — "input/output error", store corruption.
+      - nats_data:/data
     expose:
       - "4222"
 
@@ -70,3 +73,6 @@ services:
     depends_on:
       - api
       - ui
+
+volumes:
+  nats_data:

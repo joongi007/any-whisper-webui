@@ -67,8 +67,10 @@ class SpeakerEmbedder:
         # Total duration so we can clamp padded excerpts to the file.
         import soundfile as sf
 
-        def _run() -> list[Any]:
-            info = sf.info(str(wav_path))
+        from ai.audio.staging import local_copy
+
+        def _run(path: str) -> list[Any]:
+            info = sf.info(path)
             total = float(info.frames) / float(info.samplerate or 16000)
             out: list[Any] = []
             for (s, e) in spans:
@@ -82,15 +84,17 @@ class SpeakerEmbedder:
                     out.append(None)
                     continue
                 try:
-                    v = self._inf.crop(str(wav_path), Segment(lo, hi))
+                    v = self._inf.crop(path, Segment(lo, hi))
                     out.append(np.asarray(v, dtype=np.float32).reshape(-1))
                 except Exception as exc:  # noqa: BLE001
                     log.warning("embed_span_failed", start=lo, end=hi, error=str(exc))
                     out.append(None)
             return out
 
-        async with gpu_lock:
-            return await asyncio.to_thread(_run)
+        # torchcodec reader fails on 9p/DrvFs mounts → read from a local copy.
+        async with local_copy(wav_path) as local:
+            async with gpu_lock:
+                return await asyncio.to_thread(_run, str(local))
 
 
 embedder = SpeakerEmbedder()
