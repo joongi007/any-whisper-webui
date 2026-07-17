@@ -94,7 +94,9 @@ supersedes: 2026-05-10 r1 (monolith design)
 - 그 외 → ui.
 
 ### 2.5 `nats` (NATS Server with JetStream)
-- 단일 컨테이너. `/data/nats` 볼륨 (DB와 분리).
+- 단일 컨테이너. JetStream 저장소는 Docker **named volume `nats_data`**(ext4). 리포가
+  Windows 드라이브(`/mnt/*`, 9p/DrvFs)에 있을 때 바인드마운트는 블록 랜덤 I/O에서
+  `input/output error`가 나므로 `./data` 바인드에서 분리했다.
 - streams: `JOBS` (WorkQueue), `EVENTS` (Limits). 상세 `.refs/2026-05-10-nats-vs-redis.md`.
 
 ## 3. 데이터 정책 (§3)
@@ -108,9 +110,15 @@ supersedes: 2026-05-10 r1 (monolith design)
 | 업로드 원본 | `/data/uploads/` | api 쓰기, ai 읽기 |
 | 자막/중간산물 | `/data/outputs/{job_id}/` | ai 쓰기, api 읽기 |
 | 모델 가중치 캐시 | `/data/models/` | ai |
-| NATS 상태 | `/data/nats/` | nats |
+| NATS JetStream 상태 | Docker named volume `nats_data` | nats |
 
 원장 단일 소스 = **SQLite**. 이벤트 스트림은 보조. SQLite 단일 writer = api 하나 → 락 문제 없음.
+
+> **9p 회피 노트.** 리포가 Windows 드라이브(`/mnt/*`)에 있으면 `./data`는 9p/DrvFs다.
+> 순차 I/O(soundfile 읽기·16k wav 쓰기·모델 로딩)는 문제없지만, ① NATS JetStream의 랜덤
+> 블록 I/O ② torchcodec(pyannote diarize/embedding)의 접근 패턴 ③ demucs의 수 GB 스템
+> 쓰기는 9p에서 `input/output error`·`Bad address`로 실패한다. 그래서 ①은 named volume,
+> ②③은 **컨테이너 로컬(ext4) 임시 경유** 후 최종 산물만 `/data/outputs`에 남긴다.
 
 ## 4. 동시성 / 배치 (§2)
 
@@ -291,7 +299,7 @@ services:
   ui:     # expose 80 (nginx-served static)
   api:    # expose 8080
   ai:     # no port; pulls NATS
-  nats:   # 4222 internal, jetstream on /data/nats
+  nats:   # 4222 internal, jetstream on named volume nats_data
 ```
 
 GPU: `ai` 서비스에 NVIDIA toolkit 활성화 시 device reservation. 단일 GPU 환경에서 ai를 scale하면 VRAM 공유 → OOM 가능 (README 명시).

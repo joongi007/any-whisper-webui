@@ -129,8 +129,14 @@ async def run_transcribe(msg: dict[str, Any]) -> None:
         uvr_cfg = pre.get("uvr") or {}
         if uvr_cfg.get("enabled"):
             await _progress(job_id, STAGE_PRE_UVR, 0.10)
-            asr_input = await separate_vocals(wav, settings.output_dir / job_id / "uvr",
-                                              model=uvr_cfg.get("model", "htdemucs"))
+            try:
+                asr_input = await separate_vocals(wav, settings.output_dir / job_id / "uvr",
+                                                  model=uvr_cfg.get("model", "htdemucs"))
+            except Exception as exc:  # noqa: BLE001
+                # UVR is preprocessing — don't lose the whole job over it. Fall
+                # back to the original audio (no vocal isolation) and continue.
+                log.warning("uvr_failed_continuing_without_isolation", job_id=job_id, error=str(exc))
+                asr_input = wav
 
         speech_ranges = None
         vad_cfg = pre.get("vad") or {}
