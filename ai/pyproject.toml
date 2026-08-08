@@ -11,7 +11,12 @@ dependencies = [
     "nats-py>=2.9",
     "ulid-py>=1.1",
     "anyio>=4.6",
-    "numpy>=2.1",
+    # numba (pulled in by openai-whisper) lags numpy: the latest numba supports
+    # numpy <2.3, so leaving numpy uncapped lets the resolver pick numpy 2.3 and
+    # then backtrack numba to an ancient 0.53.x that fails to build on py3.12.
+    # Cap numpy to numba's ceiling and floor numba to a py3.12-capable build.
+    "numpy>=2.1,<2.3",
+    "numba>=0.61",
     "soundfile>=0.12",
 
     # whisper backends
