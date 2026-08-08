@@ -67,8 +67,17 @@ def _human(mb: int) -> str:
     return f"{mb} MB" if mb < 1000 else f"{mb / 1000:.1f} GB".replace(".0 GB", " GB")
 
 
-def _m(id_: str, mb: int) -> dict:
-    return {"id": id_, "label": f"{id_} (~{_human(mb)})", "size_mb_estimated": mb}
+# Whisper's own weights ship under MIT; that's the default license for a row.
+# Only the license *name* lives here — the human-readable summary and the
+# commercial-use flag are derived on the client from the name, so this stays the
+# single place to state each model's terms.
+def _m(id_: str, mb: int, license_: str = "MIT", label: str | None = None) -> dict:
+    return {
+        "id": id_,
+        "label": label or f"{id_} (~{_human(mb)})",
+        "size_mb_estimated": mb,
+        "license": license_,
+    }
 
 
 # Curated per-backend model catalogue. Single source of truth for the model
@@ -78,6 +87,14 @@ _BACKEND_MODELS: dict[str, list[dict]] = {
         _m("tiny", 75), _m("base", 150), _m("small", 500), _m("medium", 1500),
         _m("large-v2", 3000), _m("large-v3", 3000), _m("large-v3-turbo", 1600),
         _m("distil-large-v3", 1500),  # English-only distil
+        # Verbatim STT (fillers, stutters, disfluencies). CT2 build of
+        # CrisperWhisper — drops into faster-whisper as a HF repo id. Weights are
+        # CC-BY-NC-4.0 (non-commercial): the label keeps the size like every other
+        # row, and the licence rides in its own field so the picker can surface a
+        # warning without cluttering the list. Default stays large-v3-turbo. The
+        # faster-whisper path keeps verbatim/filler detection but not
+        # CrisperWhisper's precise word timestamps.
+        _m("nyrahealth/faster_CrisperWhisper", 3000, "CC-BY-NC-4.0", "CrisperWhisper (~3 GB)"),
     ],
     "openai_whisper": [
         _m("tiny", 75), _m("base", 150), _m("small", 500), _m("medium", 1500),

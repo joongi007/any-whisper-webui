@@ -17,6 +17,7 @@ OpenAI Whisper 기반의 로컬 음성 인식(STT) · 번역 · 자막 편집 �
 - **다양한 입력** : 오디오/영상 파일, YouTube URL, 마이크, 브라우저 탭·창 오디오 캡처
 - **자막 내보내기** : SRT / WebVTT / TXT (편집한 내용이 그대로 반영됩니다)
 - **Whisper 백엔드 선택** : `faster_whisper`(기본) / `openai_whisper` / `insanely_fast_whisper`
+- **축자(verbatim) 옵션** : CrisperWhisper 모델 선택 시 필러·말더듬까지 들리는 그대로 받아쓰기 (CC-BY-NC 비상업, 기본 아님·선택 사항)
 - **번역** : 음성 → 영어 번역(Whisper `task=translate`), 텍스트 번역(NLLB 오프라인·비상업 / DeepL)
 - **전처리** : Silero VAD, UVR(Demucs) 기반 배경음 분리
 - **화자 분리** : pyannote 기반 후처리
@@ -154,6 +155,7 @@ api · ai · ui 세 개의 프로세스가 NATS를 통해 통신하는 구조입
 | 대상 | 약관 |
 |---|---|
 | Whisper 가중치 | MIT (자유 사용) |
+| CrisperWhisper | CC-BY-NC (상업적 사용 불가, 선택 시 UI에 경고 표시) |
 | pyannote 모델 | gated. HuggingFace 약관 동의 및 토큰 필요 |
 | NLLB | CC-BY-NC (상업적 사용 불가, UI에 경고 표시) |
 | DeepL | 사용자 본인의 API 약관에 따름 |

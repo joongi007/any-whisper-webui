@@ -1,11 +1,27 @@
-import { MenuItem, Stack, TextField } from "@mui/material";
+import {
+  Box, Divider, Link, MenuItem, Popover, Stack, TextField, Typography,
+} from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fetchModels } from "../../api/system";
+import { fetchModels, type WhisperModelOption } from "../../api/system";
 
 const CUSTOM = "__custom__";
+
+/** A licence name is non-commercial if it carries the CC "NC" clause. Kept as a
+ *  pure string test so the catalogue stays the single source of the terms. */
+function isNonCommercialLicense(license: string): boolean {
+  return /(^|[-\s])NC([-\s]|$)/i.test(license) || /noncommercial/i.test(license);
+}
+
+/** Fallback for custom (user-entered) models, whose licence the server can't
+ *  know: flag the ones we recognise by name. */
+const NONCOMMERCIAL_NAMES = ["crisperwhisper"];
+function customLooksNonCommercial(model: string): boolean {
+  const m = model.toLowerCase();
+  return NONCOMMERCIAL_NAMES.some((s) => m.includes(s));
+}
 
 /** Model picker, scoped to a backend. The list comes from the server
  *  (`/system/models?backend=`) so the catalogue is one place to extend when
@@ -16,7 +32,11 @@ const CUSTOM = "__custom__";
  *
  *  `backend` drives which list loads; changing the backend refetches. If the
  *  stored model isn't in the loaded list, the picker opens in custom mode so a
- *  valid-but-unlisted value is never silently dropped. */
+ *  valid-but-unlisted value is never silently dropped.
+ *
+ *  Each row's size stays in its label; the licence rides alongside (shown for
+ *  the current pick, and browsable for every model via the licences popover) so
+ *  the dropdown itself never trades size text for licence text. */
 export function ModelSelect({
   value, onChange, backend, label, size = "small",
 }: {
@@ -40,6 +60,13 @@ export function ModelSelect({
   const inCustom = customForced || (models.isSuccess && !isKnown);
 
   const selectValue = inCustom ? CUSTOM : (isKnown ? value : "");
+  const selected = options.find((m) => m.id === value);
+  const license = selected?.license ?? null;
+  const nonCommercial = license
+    ? isNonCommercialLicense(license)
+    : (inCustom && customLooksNonCommercial(value));
+
+  const [licAnchor, setLicAnchor] = useState<HTMLElement | null>(null);
 
   return (
     <Stack spacing={1} sx={{ minWidth: 0 }}>
@@ -67,6 +94,70 @@ export function ModelSelect({
           sx={{ "& .MuiInputBase-input": { fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 13 } }}
         />
       )}
+
+      <Stack
+        direction="row" spacing={1} useFlexGap
+        sx={{ justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap" }}
+      >
+        {license && (
+          <Typography
+            variant="caption"
+            sx={{ color: nonCommercial ? "warning.main" : "text.secondary", lineHeight: 1.4 }}
+          >
+            {t("model.license")}: {license}
+            {nonCommercial && ` · ${t("model.noncommercial")}`}
+          </Typography>
+        )}
+        {options.length > 0 && (
+          <Link
+            component="button" type="button" variant="caption"
+            underline="hover" color="text.secondary"
+            sx={{ ml: "auto" }}
+            onClick={(e) => setLicAnchor(e.currentTarget)}
+          >
+            {t("model.all_licenses")}
+          </Link>
+        )}
+      </Stack>
+
+      {nonCommercial && (
+        <Typography variant="caption" sx={{ color: "warning.main", lineHeight: 1.4 }}>
+          {t("model.noncommercial_warning")}
+        </Typography>
+      )}
+
+      <Popover
+        open={Boolean(licAnchor)}
+        anchorEl={licAnchor}
+        onClose={() => setLicAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Box sx={{ px: 2, py: 1.5, maxWidth: 340 }}>
+          <Typography variant="overline" sx={{ color: "text.secondary" }}>
+            {t("model.all_licenses")}
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <Stack spacing={0.75}>
+            {options.map((m: WhisperModelOption) => {
+              const nc = m.license ? isNonCommercialLicense(m.license) : false;
+              return (
+                <Stack
+                  key={m.id} direction="row" spacing={2}
+                  sx={{ justifyContent: "space-between", alignItems: "baseline" }}
+                >
+                  <Typography variant="body2" sx={{ minWidth: 0 }}>{m.label}</Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: nc ? "warning.main" : "text.secondary", whiteSpace: "nowrap" }}
+                  >
+                    {m.license ?? "—"}
+                  </Typography>
+                </Stack>
+              );
+            })}
+          </Stack>
+        </Box>
+      </Popover>
     </Stack>
   );
 }

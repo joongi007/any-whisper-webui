@@ -74,6 +74,7 @@
     "summary_done": "최고: {{strategy}} {{xrt}}×RT",
     "summary_none": "아직 측정하지 않았어요. 이 PC에 맞는 처리 방식을 찾아보세요."
   },
+  "model": { "license": "라이선스", "noncommercial": "상업적 사용 불가", "all_licenses": "모델 라이선스 보기", "noncommercial_warning": "CrisperWhisper는 필러·말더듬까지 들리는 그대로 받아쓰는 축자 모델이고, 가중치가 CC-BY-NC(비상업)입니다. 상업적 용도로는 사용할 수 없어요. (faster-whisper 경로에선 타임스탬프 정밀도는 보장되지 않습니다)" },
   "settings": {
     "general": "일반",
     "performance": "성능",

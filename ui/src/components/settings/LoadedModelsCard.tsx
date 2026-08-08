@@ -1,14 +1,20 @@
-import { Memory, PlayArrow, PowerSettingsNew } from "@mui/icons-material";
+import { Bolt, Memory, PowerSettingsNew } from "@mui/icons-material";
 import {
-  Box, Button, CircularProgress, IconButton, Stack, Tooltip, Typography,
+  Box, Button, CircularProgress, Divider, IconButton, Stack, Tooltip, Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { fetchSystemInfo, loadModel, type LoadedModel, unloadModel } from "../../api/system";
+import { ModelSelect } from "../pipeline/ModelSelect";
 
 /** "Which models are currently resident in the AI worker, and how do I warm/evict them?"
  *  Surfaces the silent state that used to confuse first-time users — they'd click
- *  Connect, hit a long wait, and assume the app was broken. */
+ *  Connect, hit a long wait, and assume the app was broken.
+ *
+ *  It also names the startup auto-warm model (the env-set default the worker
+ *  loads on boot) and lets you warm any model on demand, so "what's warmed" is
+ *  never a mystery and isn't locked to the boot default. */
 export function LoadedModelsCard() {
   const qc = useQueryClient();
   const sys = useQuery({
@@ -28,12 +34,17 @@ export function LoadedModelsCard() {
   });
 
   const loaded = sys.data?.loaded_models ?? [];
-  const defaults = sys.data
-    ? { backend: sys.data.default_backend, model: sys.data.default_model }
-    : null;
-  const isDefaultLoaded = defaults?.backend
-    ? loaded.some((m) => m.backend === defaults.backend)
-    : false;
+  const bootBackend = sys.data?.default_backend ?? "faster_whisper";
+  const bootModel = sys.data?.default_model ?? "large-v3-turbo";
+
+  // The model to warm on demand. Defaults to the boot model until the user picks
+  // another; warming loads it now (this session) without touching the env-set
+  // startup default.
+  const [pick, setPick] = useState("");
+  const warmModel = pick || bootModel;
+  const alreadyResident = loaded.some(
+    (m) => m.backend === bootBackend && m.model === warmModel,
+  );
 
   return (
     <Stack spacing={1.5}>
@@ -46,25 +57,11 @@ export function LoadedModelsCard() {
         </Typography>
       </Stack>
 
-      {loaded.length === 0 && (
-        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ py: 0.5 }}>
-          <Typography variant="body2" sx={{ color: "text.secondary", flex: 1 }}>
-            No model is resident.
-          </Typography>
-          {defaults?.backend && defaults.model && (
-            <Button
-              size="small" variant="text"
-              startIcon={loadMut.isPending ? <CircularProgress size={14} /> : <PlayArrow fontSize="small" />}
-              disabled={loadMut.isPending}
-              onClick={() => loadMut.mutate({ backend: defaults.backend!, model: defaults.model!, idle_sec: null })}
-            >
-              Warm {defaults.backend} · {defaults.model}
-            </Button>
-          )}
-        </Stack>
-      )}
-
-      {loaded.length > 0 && (
+      {loaded.length === 0 ? (
+        <Typography variant="body2" sx={{ color: "text.secondary", py: 0.5 }}>
+          No model is resident.
+        </Typography>
+      ) : (
         <Box sx={{
           borderTop: "1px solid var(--border-default)",
           borderBottom: "1px solid var(--border-default)",
@@ -95,16 +92,33 @@ export function LoadedModelsCard() {
         </Box>
       )}
 
-      {!isDefaultLoaded && loaded.length > 0 && defaults?.backend && defaults.model && (
-        <Button
-          size="small" variant="text" sx={{ alignSelf: "flex-start" }}
-          startIcon={loadMut.isPending ? <CircularProgress size={14} /> : <PlayArrow fontSize="small" />}
-          disabled={loadMut.isPending}
-          onClick={() => loadMut.mutate({ backend: defaults.backend!, model: defaults.model!, idle_sec: null })}
-        >
-          Also warm default ({defaults.backend} · {defaults.model})
-        </Button>
-      )}
+      <Divider />
+
+      {/* Warm a chosen model on demand. The picker starts on the boot default,
+          so warming that is one click, but any catalogue model (CrisperWhisper
+          included) can be warmed here. */}
+      <Stack spacing={1}>
+        <Typography variant="overline" sx={{ color: "text.secondary" }}>
+          Warm a model
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <ModelSelect backend={bootBackend} value={warmModel} onChange={setPick} />
+          </Box>
+          <Button
+            variant="text"
+            startIcon={loadMut.isPending ? <CircularProgress size={14} /> : <Bolt fontSize="small" />}
+            disabled={loadMut.isPending || alreadyResident || sys.data?.ai_online === false}
+            onClick={() => loadMut.mutate({ backend: bootBackend, model: warmModel, idle_sec: null })}
+          >
+            {alreadyResident ? "Resident" : "Warm"}
+          </Button>
+        </Stack>
+        <Typography variant="caption" sx={{ color: "text.secondary", lineHeight: 1.4 }}>
+          Startup auto-warm: <span className="font-mono">{bootBackend} · {bootModel}</span>{" "}
+          (change the boot default via <span className="font-mono">AI_PREWARM_MODEL</span>).
+        </Typography>
+      </Stack>
     </Stack>
   );
 }

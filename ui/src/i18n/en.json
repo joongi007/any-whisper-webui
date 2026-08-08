@@ -74,6 +74,7 @@
     "summary_done": "Best: {{strategy}} {{xrt}}×RT",
     "summary_none": "Not measured yet. Find the best processing mode for this machine."
   },
+  "model": { "license": "License", "noncommercial": "No commercial use", "all_licenses": "Model licenses", "noncommercial_warning": "CrisperWhisper transcribes verbatim (fillers, stutters) and its weights are CC-BY-NC (non-commercial), so it can't be used commercially. (Timestamp precision isn't guaranteed on the faster-whisper path.)" },
   "settings": {
     "general": "General",
     "performance": "Performance",

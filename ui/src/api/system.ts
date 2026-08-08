@@ -35,6 +35,9 @@ export interface WhisperModelOption {
   id: string;
   label: string;
   size_mb_estimated: number | null;
+  /** SPDX-ish licence name, e.g. "MIT" or "CC-BY-NC-4.0". Absent for
+   *  user-entered custom models (their terms are unknown). */
+  license?: string | null;
 }
 
 export async function fetchSystemInfo(): Promise<SystemInfo> {
